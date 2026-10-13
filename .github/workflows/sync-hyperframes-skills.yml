@@ -1,0 +1,64 @@
+name: Sync HyperFrames Skills
+
+on:
+  workflow_dispatch:
+  schedule:
+    # UTC 01:17 = Asia/Shanghai 09:17
+    - cron: '17 1 * * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-hyperframes-skills
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this mirror
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Checkout official skills only
+        uses: actions/checkout@v7
+        with:
+          repository: heygen-com/hyperframes
+          ref: main
+          path: upstream-source
+          persist-credentials: false
+          sparse-checkout: |
+            /skills/
+            /LICENSE
+            /NOTICE
+          sparse-checkout-cone-mode: false
+
+      - name: Copy and commit changed skills
+        env:
+          TARGET_BRANCH: ${{ github.event.repository.default_branch }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f upstream-source/skills/hyperframes/SKILL.md
+          test -f upstream-source/LICENSE
+          mkdir -p skills
+          rsync -a --delete upstream-source/skills/ skills/
+          cp upstream-source/LICENSE LICENSE
+          if [ -f upstream-source/NOTICE ]; then
+            cp upstream-source/NOTICE NOTICE
+          fi
+          git add skills LICENSE
+          if [ -f NOTICE ]; then git add NOTICE; fi
+          if git diff --cached --quiet; then
+            echo "Skills and license are already up to date."
+            exit 0
+          fi
+          upstream_commit=$(git -C upstream-source rev-parse HEAD)
+          printf 'Source: https://github.com/heygen-com/hyperframes\nDirectory: skills/\nCommit: %s\n' "$upstream_commit" > UPSTREAM.txt
+          git add UPSTREAM.txt
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "Sync HyperFrames skills (${upstream_commit:0:12})"
+          git push origin "HEAD:$TARGET_BRANCH"
