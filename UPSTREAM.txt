@@ -1,3 +1,3 @@
 Source: https://github.com/heygen-com/hyperframes
 Directory: skills/
-Commit: f4bbbe10741bbcfe2ae866203611797e4a1999d4
+Commit: a04b45a6db0d1f724be9cf1985c3b13657195f0d
